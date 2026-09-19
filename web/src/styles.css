@@ -286,6 +286,36 @@ h1 {
   font-size: 12px;
 }
 
+.siteFooter {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #eceef3;
+  color: #858995;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.memberCredit {
+  margin: 0 0 8px;
+  color: #5c6170;
+  font-weight: 750;
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+}
+
+.footerLinks a {
+  color: #5d66ff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.footerLinks a:hover { text-decoration: underline; }
+
 @media (max-width: 520px) {
   .card {
     padding: 26px 20px;

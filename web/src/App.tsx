@@ -10,7 +10,7 @@ type Language = 'zh' | 'en'
 
 const translations = {
   zh: {
-    brand: 'HNUDAO 钱包头像',
+    brand: 'HNUDAO · 钱包头像',
     language: '界面语言',
     title: '你的钱包，你的头像。',
     lead: '连接钱包，选择图片，一次发布到兼容的头像资料层。',
@@ -38,6 +38,10 @@ const translations = {
     avatarPublished: (ensNotice: string) =>
       `头像已发布。支持 Snapshot 和 Stamp 的应用可以通过钱包地址读取。${ensNotice}`,
     noEns: '无需设置 ENS。Snapshot 发布无需 Gas；如果已有 ENS 名称，可额外同步一次头像记录。',
+    memberDeveloper: 'HNUDAO 成员开发',
+    author: '作者：HNUDAO founder',
+    telegram: 'TG：cryptoAceisme',
+    github: 'GitHub 源码',
     connectFirst: '请先连接钱包。',
     chooseFirst: '请先选择头像。',
     invalidType: '请选择 JPG 或 PNG 图片。',
@@ -46,7 +50,7 @@ const translations = {
     noAccount: '钱包没有返回账户。',
   },
   en: {
-    brand: 'HNUDAO Wallet Avatar',
+    brand: 'HNUDAO · Wallet Avatar',
     language: 'Interface language',
     title: 'Your wallet. Your avatar.',
     lead: 'Connect a wallet, choose an image, and publish it across compatible profile layers.',
@@ -74,6 +78,10 @@ const translations = {
     avatarPublished: (ensNotice: string) =>
       `Avatar published. Snapshot and Stamp-compatible apps can resolve it from your wallet address.${ensNotice}`,
     noEns: 'No ENS setup required. Snapshot is gasless; an existing ENS name may add one optional transaction.',
+    memberDeveloper: 'Built by a HNUDAO member',
+    author: 'Author: HNUDAO founder',
+    telegram: 'TG: cryptoAceisme',
+    github: 'GitHub source',
     connectFirst: 'Connect your wallet first.',
     chooseFirst: 'Choose an avatar first.',
     invalidType: 'Please choose a JPG or PNG image.',
@@ -82,6 +90,8 @@ const translations = {
     noAccount: 'Wallet did not return an account.',
   },
 } as const
+
+const GITHUB_URL = 'https://github.com/CryptographyBloke/ens-dns-bootstrap'
 
 function detectLanguage(): Language {
   try {
@@ -296,6 +306,19 @@ export default function App() {
         {error && <p className="error">{error}</p>}
 
         <p className="fine">{t.noEns}</p>
+
+        <footer className="siteFooter">
+          <p className="memberCredit">{t.memberDeveloper}</p>
+          <div className="footerLinks">
+            <span>{t.author}</span>
+            <a href="https://t.me/cryptoAceisme" target="_blank" rel="noreferrer">
+              {t.telegram}
+            </a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+              {t.github}
+            </a>
+          </div>
+        </footer>
       </section>
     </main>
   )
