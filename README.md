@@ -1,205 +1,192 @@
-# ens-dns-bootstrap
+# HNUDAO Wallet Face / HNUDAO 钱包头像
 
-This repository contains two deliberately separate pieces:
+An open-source, no-ENS-required wallet avatar tool. Connect a wallet, upload
+an image, sign once, and publish an address-based avatar through existing
+compatible services.
 
-1. a legacy, dependency-free CLI that automates the Cloudflare side of an ENS
-   onchain DNS import; and
-2. a small wallet-avatar web app that does **not** require ENS.
+一个不要求 ENS 的开源钱包头像工具：连接钱包、上传图片、签名一次，
+通过现有兼容服务发布与钱包地址关联的头像。
 
-The repository name is retained for compatibility with the existing public
-project. It is no longer the product identity.
+- Live site / 在线网站: <https://face.hnudao.online>
+- Root domain / 根域名: <https://hnudao.online>
+- Author / 作者: **HNUDAO founder**
+- Telegram: <https://t.me/cryptoAceisme>
+- Source / 源码: <https://github.com/CryptographyBloke/ens-dns-bootstrap>
 
-It is aimed at the workflow:
+The site is built by a HNUDAO member. HNUDAO is the project contributor,
+not a required protocol or identity provider.
 
-```text
-existing DNS domain on Cloudflare
-        ↓
-enable DNSSEC
-        ↓
-create _ens TXT = a=0x...
-        ↓
-wait for DNSSEC + TXT propagation
-        ↓
-open ENS Manager and approve the Ethereum transaction in your wallet
-```
+本网站由 HNUDAO 成员开发。HNUDAO 是项目贡献方，不是本工具运行所必需的
+协议或身份服务商。
 
-The tool deliberately **never accepts a wallet private key or seed phrase**.
+## What it does / 功能
 
-## Legacy ENS/DNS CLI
+1. Connect a browser wallet through EIP-1193.
+2. Choose a JPG or PNG avatar under 1 MB.
+3. Upload the image through Pineapple and receive an `ipfs://CID` URI.
+4. Sign one gasless EIP-712 Snapshot `Profile` update.
+5. Optionally sync the same URI to an existing ENS `avatar` record.
+6. Read the current avatar again by wallet address.
 
-ENS already provides the protocol, contracts, Manager app, `dnsprovejs`, and ENSjs. Cloudflare already exposes DNS and DNSSEC APIs. What was missing for our use case was a small Cloudflare-first bootstrapper that performs the repetitive DNS work and tells you exactly when the domain is ready to claim.
+1. 通过 EIP-1193 连接浏览器钱包。
+2. 选择一张不超过 1 MB 的 JPG 或 PNG 图片。
+3. 通过 Pineapple 上传并获得 `ipfs://CID` 地址。
+4. 签署一次无需 Gas 的 Snapshot EIP-712 `Profile` 更新。
+5. 如果钱包已有 ENS 名称，可选择同步 ENS 的 `avatar` 记录。
+6. 下次连接时，可以通过钱包地址读取当前头像。
 
-## Requirements
+ENS is optional. Wallets without ENS still use the gasless Snapshot path. The
+website never asks for a seed phrase or private key.
 
-- Node.js 20+
-- A domain using Cloudflare authoritative DNS
-- A scoped Cloudflare API token
-- DNSSEC support for the TLD / registrar
-- An Ethereum wallet for the final ENS onchain claim
+ENS 是可选项。没有 ENS 的钱包仍然可以使用无需 Gas 的 Snapshot 流程。
+网站不会索要助记词或私钥。
 
-## Cloudflare token
+## Compatibility / 兼容性
 
-Create a token scoped to the single zone if possible. It needs enough permission to:
+- **Snapshot:** the avatar is published in the user's Snapshot profile.
+- **Stamp:** the app provides a shareable address-based avatar URL.
+- **ENS-aware applications:** they can use the optional ENS `avatar` record.
+- **IPFS-aware applications:** they can resolve the content-addressed image.
 
-- read the zone (`Zone Read`);
-- edit DNS records and DNSSEC (`DNS Write`).
+- **Snapshot：**头像发布到用户的 Snapshot Profile。
+- **Stamp：**网站提供基于钱包地址的可分享头像链接。
+- **支持 ENS 的应用：**可以读取可选同步的 ENS `avatar` 记录。
+- **支持 IPFS 的应用：**可以解析内容寻址的图片。
 
-Do **not** use your Global API Key.
+There is no universal avatar registry. A third-party website must choose to
+read Snapshot, ENS, Stamp, IPFS, or another source; arbitrary websites cannot
+be forced to adopt a new avatar source.
 
-Set it only in your shell environment:
+不存在能够强制所有网站显示头像的统一注册表。第三方网站必须主动选择
+读取 Snapshot、ENS、Stamp、IPFS 或其他来源。
 
-```bash
-export CLOUDFLARE_API_TOKEN='...'
-```
+## Architecture / 架构
 
-Never commit the token to a repository.
+The current web app separates three responsibilities:
 
-## Run from source
+当前 Web 应用把三个职责分开：
 
-```bash
-git clone https://github.com/CryptographyBloke/ens-dns-bootstrap.git
-cd ens-dns-bootstrap
-node src/cli.mjs setup \
-  --domain hnudao.online \
-  --address 0x101f99125E4Aa1402f0eaEF896cC175Ba1280f0A
-```
-
-No `npm install` is required for v0.1.
-
-The command will:
-
-1. locate the matching Cloudflare zone;
-2. enable DNSSEC if it is not already enabled;
-3. create or update `_ens.<domain>` with `a=<address>` and TTL 3000;
-4. poll Cloudflare for DNSSEC state;
-5. verify the public TXT record through DNS-over-HTTPS and require DNSSEC authentication (`AD=true`);
-6. print `readyToClaim: true` only when Cloudflare reports DNSSEC active and the public TXT answer is DNSSEC-authenticated;
-7. print the ENS Manager URL for the wallet-signed claim.
-
-## Commands
-
-### Setup
-
-```bash
-node src/cli.mjs setup --domain example.com --address 0x...
-```
-
-Useful options:
-
-```text
---no-wait          apply Cloudflare changes and exit immediately
---timeout 1800     maximum wait in seconds (default: 1800)
---interval 15      poll interval in seconds (default: 15)
---dry-run          show intended changes without modifying Cloudflare
---json             machine-readable output
-```
-
-### Status
-
-```bash
-node src/cli.mjs status --domain example.com --address 0x... --json
-```
-
-### Remove the ENS ownership TXT record
-
-```bash
-node src/cli.mjs remove --domain example.com --yes
-```
-
-This only removes matching `_ens` ownership records. It does **not** disable DNSSEC.
-
-## Security model
-
-- The Cloudflare API token stays in the local process environment.
-- The CLI does not store the token.
-- The CLI does not receive or store an Ethereum private key.
-- Any Ethereum transaction remains an explicit wallet confirmation.
-- If more than one TXT record exists at `_ens.<domain>`, the tool stops instead of guessing which record to overwrite.
-- If the single existing `_ens` TXT record is not an ENS ownership record (`a=0x...`), the tool refuses to overwrite it.
-
-## Wallet-avatar web app
-
-The `web/` application uses existing compatibility layers instead of
-introducing a new contract or registry:
-
-```text
-wallet address
-      ↓ upload image to Pineapple
-ipfs://CID
-      ├─ EIP-712 Profile signature → Snapshot profile
-      └─ optional ENS avatar record → ENS-aware applications
-```
-
-The user flow is:
-
-1. Connect a browser wallet.
-2. Choose a JPG or PNG image.
-3. Upload it to IPFS through Pineapple.
-4. Sign one gasless Snapshot profile update.
-5. If the wallet already has an ENS primary name, optionally confirm one
-   Ethereum transaction to sync its `avatar` text record.
-6. Resolve the avatar by wallet address.
-
-Snapshot and services such as Stamp that use Snapshot's avatar resolver can
-display the result. ENS-aware applications can use the synced `avatar` record
-when the wallet already has an ENS name. Other applications still need to
-support one of these sources; no website can make arbitrary applications adopt
-a new avatar source automatically.
-
-See [`web/README.md`](web/README.md) for configuration. The browser never
-receives a private key or seed phrase. Wallets without ENS still complete the
-gasless Snapshot path; the ENS write is best-effort and never blocks success.
-
-### Architecture and network path
-
-The web app separates three different responsibilities:
-
-- **Control:** the wallet proves that the user controls an address by signing
-  in the browser. The site never asks for a seed phrase or private key.
-- **Content:** the image is uploaded once to Pineapple and addressed by its
-  content identifier, such as `ipfs://CID`.
-- **Compatibility:** the same content URI is published through existing
-  profile systems. Snapshot is the no-gas default; an existing ENS name can
-  optionally receive the same URI in its `avatar` text record.
-
-The public request and data paths are:
+- **Control / 控制权:** the wallet signs for the address; private keys stay in
+  the wallet. 钱包通过签名证明地址控制权，私钥始终留在钱包中。
+- **Content / 内容:** the image is stored through Pineapple and addressed by
+  an IPFS CID. 图片通过 Pineapple 存储，并由 IPFS CID 定位。
+- **Compatibility / 兼容层:** the same URI is published through Snapshot and,
+  optionally, ENS. 同一个 URI 通过 Snapshot，以及可选的 ENS 发布。
 
 ```mermaid
 flowchart TD
-    A[Browser] --> B[face.hnudao.online]
-    B --> C[Static web app]
-    C --> D[Browser wallet]
-    C --> E[Pineapple to IPFS]
-    C --> F[Snapshot sequencer]
-    C --> G[Optional ENS resolver]
+    A[Browser / 浏览器] --> B[Wallet / 钱包]
+    A --> C[Pineapple → IPFS]
+    A --> D[Snapshot Profile]
+    A --> E[Optional ENS / 可选 ENS]
 ```
 
-1. DNS maps `face.hnudao.online` to the hosted static site. The browser
-   downloads only HTML, JavaScript, and CSS from the site.
-2. When the user connects, JavaScript calls the wallet's EIP-1193 provider
-   with `eth_requestAccounts`. The wallet returns an address; private keys
-   stay inside the wallet.
-3. The selected image goes directly from the browser to Pineapple. Pineapple
-   stores it on IPFS and returns an `ipfs://CID` URI.
-4. The browser asks the wallet to sign Snapshot's EIP-712 `Profile` message,
-   then sends the signed envelope to `seq.snapshot.org`. This is the normal
-   gasless path.
-5. On the next connection, the app reads the current profile from
-   `hub.snapshot.org/graphql`. Snapshot-compatible services can resolve the
-   wallet avatar; Stamp also exposes a shareable address-based URL.
-6. If the address already has an ENS primary name and resolver, the app can
-   optionally send one Ethereum `setText(..., "avatar", ipfs://CID)` transaction
-   through the wallet. Rejecting or skipping that transaction does not undo
-   the Snapshot publication.
+## Network path / 网络访问路径
 
-Logout clears the app's local connection, selected file, and preview. Wallets
-that support EIP-2255 are also asked to revoke the account permission. Logout
-does not delete an IPFS object or a previously published Snapshot profile.
+1. DNS sends `face.hnudao.online` to the hosted static site.
+2. The browser loads the HTML, JavaScript, and CSS application.
+3. Wallet requests and signatures stay between the browser and the wallet
+   provider.
+4. The selected image goes from the browser to Pineapple and returns an
+   `ipfs://CID` URI.
+5. The signed Snapshot message goes to the Snapshot sequencer; profile reads
+   use the Snapshot Hub GraphQL API.
+6. If enabled, the ENS adapter sends one Ethereum transaction to the existing
+   resolver.
 
-There is no universal avatar registry: a third-party site must choose to read
-Snapshot, ENS, Stamp, or another compatible source. This design maximizes
-compatibility without introducing a new contract or forcing ENS setup.
+1. DNS 将 `face.hnudao.online` 指向托管的静态网站。
+2. 浏览器加载 HTML、JavaScript 和 CSS 应用。
+3. 钱包请求与签名发生在浏览器和钱包提供者之间。
+4. 头像从浏览器上传到 Pineapple，并返回 `ipfs://CID`。
+5. 签名后的 Snapshot 消息提交到 Snapshot Sequencer；资料读取使用
+   Snapshot Hub GraphQL API。
+6. 如果启用 ENS 同步，适配器会向已有 Resolver 发起一笔以太坊交易。
 
-## License
+Logout clears the local connection, selected file, and preview. It does not
+delete an IPFS object or an already-published Snapshot profile.
+
+Logout 会清除本地连接、选中的文件和预览，但不会删除 IPFS 对象或已经发布
+的 Snapshot Profile。
+
+## Repository layout / 仓库结构
+
+```text
+src/                 Legacy Cloudflare/ENS DNS bootstrap CLI
+web/                 Current wallet-avatar web app
+.github/workflows/   Web build and protocol checks
+```
+
+The original CLI is retained for compatibility with the first version of the
+project. The current avatar website does not require the CLI, DNSSEC, or ENS.
+
+旧版 CLI 为兼容项目第一阶段而保留。当前钱包头像网站不要求使用 CLI、DNSSEC
+或 ENS。
+
+## Local development / 本地开发
+
+```bash
+cd web
+npm ci
+npm run dev
+```
+
+Build and run the protocol check:
+
+构建并运行协议检查：
+
+```bash
+npm run build
+npm run test:protocol
+```
+
+The web app uses these public defaults:
+
+Web 应用默认使用以下公开服务：
+
+```text
+Snapshot Hub:        https://hub.snapshot.org/graphql
+Snapshot Sequencer:  https://seq.snapshot.org
+IPFS gateway:        https://ipfs.io/ipfs/
+Ethereum RPC:        https://cloudflare-eth.com
+```
+
+## Legacy CLI / 旧版 CLI
+
+The CLI automates the repetitive Cloudflare side of an ENS DNS import. It does
+not perform the final wallet-signed Ethereum claim and never accepts a private
+key or seed phrase.
+
+该 CLI 用于自动化 ENS DNS 导入中的 Cloudflare 部分，不会代替钱包执行最终的
+以太坊 Claim 交易，也不会接受私钥或助记词。
+
+Requirements / 环境要求:
+
+- Node.js 20+
+- A domain using Cloudflare authoritative DNS / 使用 Cloudflare 权威 DNS 的域名
+- A scoped Cloudflare API token / 权限受限的 Cloudflare API Token
+- DNSSEC support for the domain suffix / 域名后缀支持 DNSSEC
+- A wallet for the final on-chain claim / 用于最终链上 Claim 的钱包
+
+Example / 示例：
+
+```bash
+node src/cli.mjs setup --domain example.com --address 0x...
+node src/cli.mjs status --domain example.com --address 0x... --json
+node src/cli.mjs remove --domain example.com --yes
+```
+
+## Security / 安全
+
+- Never put a Cloudflare token, private key, or seed phrase in Git.
+- Wallet transactions and EIP-712 signatures remain explicit wallet actions.
+- The browser client does not receive a private key or seed phrase.
+- Logout does not erase decentralized data already published elsewhere.
+
+- 不要把 Cloudflare Token、私钥或助记词放进 Git。
+- 链上交易和 EIP-712 签名始终由钱包明确确认。
+- 浏览器客户端不会接收私钥或助记词。
+- Logout 不会删除已经发布到其他去中心化服务的数据。
+
+## License / 许可证
 
 MIT
