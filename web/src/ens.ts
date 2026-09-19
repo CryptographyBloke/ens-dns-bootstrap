@@ -9,7 +9,6 @@ import {
   getAddress,
   http,
   type Address,
-  type WalletClient,
 } from 'viem'
 import { mainnet } from 'viem/chains'
 
@@ -20,12 +19,7 @@ export const publicClient = createPublicClient({
   transport: http(),
 })
 
-export type ConnectedWallet = {
-  address: Address
-  walletClient: WalletClient
-}
-
-export async function connectWallet(): Promise<ConnectedWallet> {
+export async function connectWallet() {
   if (!window.ethereum) {
     throw new Error('No browser wallet found. Install MetaMask, Rabby, or another EIP-1193 wallet.')
   }
@@ -51,6 +45,8 @@ export async function connectWallet(): Promise<ConnectedWallet> {
   return { address, walletClient }
 }
 
+export type AppWalletClient = Awaited<ReturnType<typeof connectWallet>>['walletClient']
+
 export async function getPrimaryName(address: Address) {
   const result = await getName(publicClient, { address })
   if (!result?.match || !result.name) return null
@@ -68,7 +64,7 @@ export async function getResolverAddress(name: string) {
 export async function ensureDnsNameImported(
   name: string,
   address: Address,
-  walletClient: WalletClient,
+  walletClient: AppWalletClient,
 ) {
   let resolverAddress = await getResolverAddress(name)
   if (resolverAddress) return resolverAddress
@@ -100,7 +96,7 @@ export async function publishAvatarRecord({
   address: Address
   avatarUrl: string
   resolverAddress: Address
-  walletClient: WalletClient
+  walletClient: AppWalletClient
 }) {
   const hash = await setRecords(walletClient, {
     name,
@@ -116,7 +112,7 @@ export async function publishAvatarRecord({
 export async function ensurePrimaryName(
   name: string,
   address: Address,
-  walletClient: WalletClient,
+  walletClient: AppWalletClient,
 ) {
   const current = await getName(publicClient, { address })
   if (current?.match && current.name?.toLowerCase() === name.toLowerCase()) return null
