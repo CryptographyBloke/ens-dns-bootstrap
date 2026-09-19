@@ -1,4 +1,5 @@
-import type { Address, WalletClient } from 'viem'
+import type { Address } from 'viem'
+import type { AppWalletClient } from './ens'
 
 const AVATAR_BASE = 'https://euc.li'
 
@@ -10,7 +11,11 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 }
 
 async function sha256Hex(bytes: Uint8Array) {
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  const arrayBuffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer
+  const digest = await crypto.subtle.digest('SHA-256', arrayBuffer)
   const view = new Uint8Array(digest)
   return ('0x' + Array.from(view, (byte) => byte.toString(16).padStart(2, '0')).join('')) as `0x${string}`
 }
@@ -46,7 +51,7 @@ export async function uploadAvatar({
   name: string
   address: Address
   dataUrl: string
-  walletClient: WalletClient
+  walletClient: AppWalletClient
 }) {
   const endpoint = avatarEndpoint(name)
   const hash = await sha256Hex(dataUrlToBytes(dataUrl))
