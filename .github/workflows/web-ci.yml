@@ -21,4 +21,6 @@ jobs:
       - working-directory: web
         run: npm install
       - working-directory: web
+        run: npm run test:protocol
+      - working-directory: web
         run: npm run build

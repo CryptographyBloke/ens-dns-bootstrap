@@ -1,6 +1,13 @@
 # ens-dns-bootstrap
 
-A tiny, dependency-free Node.js CLI that automates the **Cloudflare side** of an ENS **onchain DNS import**.
+This repository contains two deliberately separate pieces:
+
+1. a legacy, dependency-free CLI that automates the Cloudflare side of an ENS
+   onchain DNS import; and
+2. a small wallet-avatar web app that does **not** require ENS.
+
+The repository name is retained for compatibility with the existing public
+project. It is no longer the product identity.
 
 It is aimed at the workflow:
 
@@ -18,7 +25,7 @@ open ENS Manager and approve the Ethereum transaction in your wallet
 
 The tool deliberately **never accepts a wallet private key or seed phrase**.
 
-## Why this exists
+## Legacy ENS/DNS CLI
 
 ENS already provides the protocol, contracts, Manager app, `dnsprovejs`, and ENSjs. Cloudflare already exposes DNS and DNSSEC APIs. What was missing for our use case was a small Cloudflare-first bootstrapper that performs the repetitive DNS work and tells you exactly when the domain is ready to claim.
 
@@ -110,20 +117,88 @@ This only removes matching `_ens` ownership records. It does **not** disable DNS
 - If more than one TXT record exists at `_ens.<domain>`, the tool stops instead of guessing which record to overwrite.
 - If the single existing `_ens` TXT record is not an ENS ownership record (`a=0x...`), the tool refuses to overwrite it.
 
-## v0.2 roadmap: actual “one-click” UX
+## Wallet-avatar web app
 
-The next version can be a small local/self-hosted web app:
+The `web/` application uses existing compatibility layers instead of
+introducing a new contract or registry:
 
-1. Connect browser wallet (EIP-1193 / WalletConnect).
-2. Call Cloudflare API for DNSSEC + TXT setup.
-3. Generate DNSSEC proof with `@ensdomains/dnsprovejs`.
-4. Prepare the ENS `DNSRegistrar` claim transaction.
-5. Ask the connected wallet to sign it.
-6. Configure the resolver records, including `avatar`.
-7. Set the primary/reverse name.
-8. Verify address → name → avatar resolution.
+```text
+wallet address
+      ↓ upload image to Pineapple
+ipfs://CID
+      ├─ EIP-712 Profile signature → Snapshot profile
+      └─ optional ENS avatar record → ENS-aware applications
+```
 
-The wallet-signing boundary should remain explicit; “one click” should mean orchestration, not custody of signing keys.
+The user flow is:
+
+1. Connect a browser wallet.
+2. Choose a JPG or PNG image.
+3. Upload it to IPFS through Pineapple.
+4. Sign one gasless Snapshot profile update.
+5. If the wallet already has an ENS primary name, optionally confirm one
+   Ethereum transaction to sync its `avatar` text record.
+6. Resolve the avatar by wallet address.
+
+Snapshot and services such as Stamp that use Snapshot's avatar resolver can
+display the result. ENS-aware applications can use the synced `avatar` record
+when the wallet already has an ENS name. Other applications still need to
+support one of these sources; no website can make arbitrary applications adopt
+a new avatar source automatically.
+
+See [`web/README.md`](web/README.md) for configuration. The browser never
+receives a private key or seed phrase. Wallets without ENS still complete the
+gasless Snapshot path; the ENS write is best-effort and never blocks success.
+
+### Architecture and network path
+
+The web app separates three different responsibilities:
+
+- **Control:** the wallet proves that the user controls an address by signing
+  in the browser. The site never asks for a seed phrase or private key.
+- **Content:** the image is uploaded once to Pineapple and addressed by its
+  content identifier, such as `ipfs://CID`.
+- **Compatibility:** the same content URI is published through existing
+  profile systems. Snapshot is the no-gas default; an existing ENS name can
+  optionally receive the same URI in its `avatar` text record.
+
+The public request and data paths are:
+
+```mermaid
+flowchart TD
+    A[Browser] --> B[face.hnudao.online]
+    B --> C[Static web app]
+    C --> D[Browser wallet]
+    C --> E[Pineapple to IPFS]
+    C --> F[Snapshot sequencer]
+    C --> G[Optional ENS resolver]
+```
+
+1. DNS maps `face.hnudao.online` to the hosted static site. The browser
+   downloads only HTML, JavaScript, and CSS from the site.
+2. When the user connects, JavaScript calls the wallet's EIP-1193 provider
+   with `eth_requestAccounts`. The wallet returns an address; private keys
+   stay inside the wallet.
+3. The selected image goes directly from the browser to Pineapple. Pineapple
+   stores it on IPFS and returns an `ipfs://CID` URI.
+4. The browser asks the wallet to sign Snapshot's EIP-712 `Profile` message,
+   then sends the signed envelope to `seq.snapshot.org`. This is the normal
+   gasless path.
+5. On the next connection, the app reads the current profile from
+   `hub.snapshot.org/graphql`. Snapshot-compatible services can resolve the
+   wallet avatar; Stamp also exposes a shareable address-based URL.
+6. If the address already has an ENS primary name and resolver, the app can
+   optionally send one Ethereum `setText(..., "avatar", ipfs://CID)` transaction
+   through the wallet. Rejecting or skipping that transaction does not undo
+   the Snapshot publication.
+
+Logout clears the app's local connection, selected file, and preview. Wallets
+that support EIP-2255 are also asked to revoke the account permission. Logout
+does not delete an IPFS object or a previously published Snapshot profile.
+
+There is no universal avatar registry: a third-party site must choose to read
+Snapshot, ENS, Stamp, or another compatible source. This design maximizes
+compatibility without introducing a new contract or forcing ENS setup.
 
 ## License
 

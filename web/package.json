@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:protocol": "node scripts/check-protocol.mjs"
   },
   "dependencies": {
-    "@ensdomains/ensjs": "^4.2.3",
+    "@snapshot-labs/pineapple": "^1.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "viem": "^2.37.6"

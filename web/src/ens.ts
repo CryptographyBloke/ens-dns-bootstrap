@@ -1,126 +1,80 @@
-import { addEnsContracts } from '@ensdomains/ensjs'
-import { getName, getResolver, getTextRecord } from '@ensdomains/ensjs/public'
-import { getDnsImportData, importDnsName } from '@ensdomains/ensjs/dns'
-import { setPrimaryName, setRecords } from '@ensdomains/ensjs/wallet'
 import {
   createPublicClient,
   createWalletClient,
   custom,
-  getAddress,
   http,
+  zeroAddress,
   type Address,
 } from 'viem'
 import { mainnet } from 'viem/chains'
+import { getEnsName, getEnsResolver, namehash } from 'viem/ens'
 
-const chain = addEnsContracts(mainnet)
+const ensRpcUrl = import.meta.env.VITE_ENS_RPC_URL || 'https://cloudflare-eth.com'
 
-export const publicClient = createPublicClient({
-  chain,
-  transport: http(),
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(ensRpcUrl),
 })
 
-export async function connectWallet() {
-  if (!window.ethereum) {
-    throw new Error('No browser wallet found. Install MetaMask, Rabby, or another EIP-1193 wallet.')
+const resolverAbi = [
+  {
+    type: 'function',
+    name: 'setText',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'node', type: 'bytes32' },
+      { name: 'key', type: 'string' },
+      { name: 'value', type: 'string' },
+    ],
+    outputs: [],
+  },
+] as const
+
+type EnsAvatarResult =
+  | { updated: true; name: string; direct: boolean }
+  | { updated: false; reason: 'no-ens-record' | 'no-resolver' }
+
+/**
+ * Best-effort compatibility adapter. Snapshot is the source that makes the
+ * no-gas path complete; this only writes ENS when the wallet already has a
+ * valid primary name or an already-claimed address reverse record. It never
+ * creates an ENS record, so wallets without one stay on the gasless path.
+ */
+export async function publishEnsAvatar(
+  address: Address,
+  avatarURI: string,
+): Promise<EnsAvatarResult> {
+  const primaryName = await getEnsName(publicClient, { address })
+  const reverseName = `${address.slice(2).toLowerCase()}.addr.reverse`
+  const name = primaryName || reverseName
+
+  const resolverAddress = await getEnsResolver(publicClient, { name })
+  if (!resolverAddress || resolverAddress === zeroAddress) {
+    return { updated: false, reason: primaryName ? 'no-resolver' : 'no-ens-record' }
   }
+
+  if (!window.ethereum) return { updated: false, reason: 'no-ens-record' }
 
   await window.ethereum.request({
     method: 'wallet_switchEthereumChain',
     params: [{ chainId: '0x1' }],
   })
 
-  const accounts = (await window.ethereum.request({
-    method: 'eth_requestAccounts',
-  })) as string[]
-
-  if (!accounts?.[0]) throw new Error('Wallet did not return an account.')
-
-  const address = getAddress(accounts[0])
-  const walletClient = createWalletClient({
+  const ensWalletClient = createWalletClient({
     account: address,
-    chain,
+    chain: mainnet,
     transport: custom(window.ethereum),
   })
 
-  return { address, walletClient }
-}
-
-export type AppWalletClient = Awaited<ReturnType<typeof connectWallet>>['walletClient']
-
-export async function getPrimaryName(address: Address) {
-  const result = await getName(publicClient, { address })
-  if (!result?.match || !result.name) return null
-  return result.name
-}
-
-export async function getAvatarRecord(name: string) {
-  return getTextRecord(publicClient, { name, key: 'avatar' })
-}
-
-export async function getResolverAddress(name: string) {
-  return getResolver(publicClient, { name })
-}
-
-export async function ensureDnsNameImported(
-  name: string,
-  address: Address,
-  walletClient: AppWalletClient,
-) {
-  let resolverAddress = await getResolverAddress(name)
-  if (resolverAddress) return resolverAddress
-
-  const dnsImportData = await getDnsImportData(publicClient, { name })
-  const hash = await importDnsName(walletClient, {
-    name,
-    address,
-    dnsImportData,
+  const hash = await ensWalletClient.writeContract({
+    address: resolverAddress,
+    abi: resolverAbi,
+    functionName: 'setText',
+    args: [namehash(name), 'avatar', avatarURI],
     account: address,
+    chain: mainnet,
   })
+
   await publicClient.waitForTransactionReceipt({ hash })
-
-  resolverAddress = await getResolverAddress(name)
-  if (!resolverAddress) {
-    throw new Error('ENS claim completed but no resolver is visible yet. Wait a moment and try again.')
-  }
-  return resolverAddress
-}
-
-export async function publishAvatarRecord({
-  name,
-  address,
-  avatarUrl,
-  resolverAddress,
-  walletClient,
-}: {
-  name: string
-  address: Address
-  avatarUrl: string
-  resolverAddress: Address
-  walletClient: AppWalletClient
-}) {
-  const hash = await setRecords(walletClient, {
-    name,
-    coins: [{ coin: 'ETH', value: address }],
-    texts: [{ key: 'avatar', value: avatarUrl }],
-    resolverAddress,
-    account: address,
-  })
-  await publicClient.waitForTransactionReceipt({ hash })
-  return hash
-}
-
-export async function ensurePrimaryName(
-  name: string,
-  address: Address,
-  walletClient: AppWalletClient,
-) {
-  const current = await getName(publicClient, { address })
-  if (current?.match && current.name?.toLowerCase() === name.toLowerCase()) return null
-
-  const hash = await setPrimaryName(walletClient, {
-    name,
-    account: address,
-  })
-  await publicClient.waitForTransactionReceipt({ hash })
-  return hash
+  return { updated: true, name, direct: !primaryName }
 }

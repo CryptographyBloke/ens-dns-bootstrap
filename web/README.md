@@ -1,53 +1,80 @@
-# ENS Avatar web app (v0.2)
+# HNUDAO Avatar web app
 
-The intended user experience is deliberately tiny:
+This is the small browser client for publishing a wallet avatar through
+existing compatibility layers. ENS, DNS, and a custom contract are not
+required.
 
-1. connect wallet;
-2. upload an image;
-3. publish;
-4. see the avatar.
+The user flow is:
 
-The app hides the ENS details as much as possible.
+1. connect a browser wallet;
+2. choose a JPG or PNG image under 1 MB;
+3. upload it to IPFS through Pineapple;
+4. sign one EIP-712 Snapshot `Profile` message;
+5. if a primary ENS name already exists, optionally confirm one transaction to
+   sync its `avatar` record;
+6. display the avatar by wallet address.
 
-## What it already does
+The interface supports Chinese and English. After connecting, `Logout` clears
+the local app session and attempts an EIP-2255 permission revoke when the
+wallet supports it. It does not delete already-published IPFS or Snapshot
+data.
 
-- Connects an EIP-1193 browser wallet.
-- Switches to Ethereum mainnet.
-- Detects an existing primary ENS name automatically.
-- Lets the user provide a DNS/ENS name once if no primary name exists.
-- Reads the current `avatar` text record.
-- Uses the same signed-upload pattern as the ENS Manager app and stores the image at `https://euc.li/<name>`.
-- If the DNS name has not been imported yet, attempts ENS onchain DNS import using `getDnsImportData()` + `importDnsName()`.
-- On first setup, writes the wallet address + avatar URL to the name's resolver.
-- Sets the name as the wallet primary name.
-- On later avatar changes, if the avatar record already points to the managed upload endpoint, only the signed upload is needed; no avatar-record transaction is necessary.
+## Configuration
 
-## Important first-time prerequisite for DNS names
-
-A traditional DNS name still needs DNSSEC and the ENS ownership TXT record before an onchain claim can succeed:
+The defaults use the public Snapshot services. Copy `.env.example` to
+`.env.local` only if you need to override them:
 
 ```text
-_ens.example.com TXT "a=0xYourWallet"
+VITE_PINEAPPLE_URL=https://pineapple.fyi/upload
+VITE_SNAPSHOT_SEQUENCER_URL=https://seq.snapshot.org
+VITE_SNAPSHOT_API_URL=https://hub.snapshot.org/graphql
+VITE_ENS_RPC_URL=https://cloudflare-eth.com
+VITE_IPFS_GATEWAY=https://ipfs.io/ipfs/
+VITE_ARWEAVE_GATEWAY=https://arweave.net
 ```
 
-The existing root CLI can automate that Cloudflare side.
+The upload endpoint receives only the selected image. The wallet signs the
+profile update in the browser; the site never receives a private key or seed
+phrase.
 
-The planned v0.3 UX uses Cloudflare OAuth + PKCE so the web app can obtain narrowly scoped DNS access without asking the user to paste an API token.
+## Network path
+
+The deployed site is a static client. DNS sends `face.hnudao.online` to the
+hosted site, and the browser then makes the following direct requests:
+
+```text
+Browser
+  ├─ EIP-1193 calls → wallet extension
+  ├─ POST image → Pineapple → ipfs://CID
+  ├─ EIP-712 signature → Snapshot sequencer
+  ├─ GraphQL read → Snapshot Hub
+  └─ optional Ethereum RPC + wallet transaction → ENS resolver
+```
+
+The browser is the coordinator. There is no application server holding user
+keys or avatar state. Snapshot stores the signed profile, while the image is
+content-addressed by IPFS. The ENS adapter is best-effort and only runs when
+an existing ENS name/resolver can be found.
 
 ## Run locally
 
 ```bash
-cd web
 npm install
 npm run dev
 ```
 
-## Build
+## Build and protocol check
 
 ```bash
+npm run test:protocol
 npm run build
 ```
 
-## Security boundary
+## Compatibility
 
-The web app never receives a seed phrase or private key. Ethereum operations are signed by the user's browser wallet. Avatar uploads use an EIP-712 signature. Cloudflare authorization is not yet implemented in v0.2.
+Snapshot stores the signed profile and the avatar points to an IPFS CID. The
+avatar is immediately compatible with Snapshot and services such as Stamp that
+use Snapshot's resolver. If the wallet already has an ENS primary name, the
+same IPFS URI is also written to the ENS `avatar` text record so ENS-aware apps
+can resolve it. That optional transaction is best-effort; Snapshot publication
+still succeeds if it is rejected or unavailable.

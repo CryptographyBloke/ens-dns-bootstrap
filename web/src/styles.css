@@ -38,6 +38,13 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   text-align: center;
 }
 
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .brand {
   display: inline-flex;
   padding: 7px 11px;
@@ -46,6 +53,35 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.languageSelect select {
+  min-height: 34px;
+  border: 1px solid #dfe1e8;
+  border-radius: 10px;
+  padding: 0 9px;
+  background: #fff;
+  color: #4d5260;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+
+.languageSelect select:focus {
+  border-color: #858cff;
+  box-shadow: 0 0 0 4px rgba(93, 102, 255, 0.09);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 h1 {
@@ -104,15 +140,40 @@ h1 {
 
 .primary:hover:not(:disabled) { background: #252832; }
 
+.accountRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
 .walletPill {
   display: inline-flex;
-  margin-bottom: 14px;
+  margin-bottom: 0;
   padding: 8px 12px;
   border-radius: 999px;
   background: #f4f5f8;
   color: #585d69;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
+}
+
+.logout {
+  min-height: 34px;
+  border: 1px solid #e2e3e9;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #fff;
+  color: #696e7a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.logout:hover:not(:disabled) {
+  border-color: #c9ccd7;
+  background: #fafafd;
+  color: #282b33;
 }
 
 .field {
@@ -187,6 +248,28 @@ h1 {
   text-align: left;
 }
 
+.uri {
+  margin: 12px 0 0;
+  overflow: hidden;
+  color: #7d8190;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shareLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #5d66ff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.shareLink:hover { text-decoration: underline; }
+
 .notice {
   background: #f4f6ff;
   color: #4e5571;
@@ -207,5 +290,9 @@ h1 {
   .card {
     padding: 26px 20px;
     border-radius: 22px;
+  }
+
+  .accountRow {
+    align-items: stretch;
   }
 }
