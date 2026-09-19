@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { Address, WalletClient } from 'viem'
+import type { Address } from 'viem'
 import {
   connectWallet,
   ensureDnsNameImported,
@@ -8,6 +8,7 @@ import {
   getPrimaryName,
   getResolverAddress,
   publishAvatarRecord,
+  type AppWalletClient,
 } from './ens'
 import {
   avatarEndpoint,
@@ -31,7 +32,7 @@ function normalizeName(value: string) {
 
 export default function App() {
   const [address, setAddress] = useState<Address>()
-  const [walletClient, setWalletClient] = useState<WalletClient>()
+  const [walletClient, setWalletClient] = useState<AppWalletClient>()
   const [name, setName] = useState(() => queryName || localStorage.getItem('ens-avatar-name') || '')
   const [avatarRecord, setAvatarRecord] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
